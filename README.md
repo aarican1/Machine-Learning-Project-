@@ -7,9 +7,7 @@
 | --- |     | --- |
 | Rapor adı | Makine Öğrenimi ile AIDS Virüsü Enfeksiyonu Tahmini |
 | Rapor Sahibi Ad Soyadı | Abdurrahman Arıcan |
-| Rapor Sahibi Okul Numarası | 202013171063 |
-| Ders Adı | Makine Öğrenimi |
-| Ders Hocası | Dr. Öğr. Üyesi Pınar Özen Kavas |
+
 
 **1.Özet**
 
