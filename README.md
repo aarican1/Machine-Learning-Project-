@@ -3,10 +3,7 @@
 
 <br/><br/><br/>
 
-| <br/>Rapor Hakkında Ön Bilgilendirme |     |
-| --- |     | --- |
-| Rapor adı | Makine Öğrenimi ile AIDS Virüsü Enfeksiyonu Tahmini |
-| Rapor Sahibi Ad Soyadı | Abdurrahman Arıcan |
+
 
 
 **1.Özet**
