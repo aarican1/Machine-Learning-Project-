@@ -10,6 +10,7 @@ Original file is located at
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.tree import DecisionTreeClassifier, export_graphviz
@@ -17,24 +18,158 @@ import graphviz
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score,confusion_matrix
+from sklearn.metrics import accuracy_score,confusion_matrix,roc_curve, roc_auc_score, cohen_kappa_score
 import tensorflow as tf
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
+import seaborn as sns
+import matplotlib.pyplot as plt
+from scipy.stats import kstest,stats
+from sklearn.feature_selection import SelectKBest,mutual_info_classif
+from imblearn.over_sampling import SMOTE
 
 
 
 dataset  =  pd.read_csv("dataset.csv")
-dataset.head(1)
+dataset = dataset.dropna()
 
-#dataset eğitim test ayrımı preproccess
+dataset.head(3)
+dataset.info()
+
+
+
+### Korelasyon matrixi
+df = pd.DataFrame(dataset)
+# 2. Korelasyon matrisi hesapla
+#correlation_matrix = df.corr()
+#plt.figure(figsize=(14, 14))
+#sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt=".2f")
+#plt.title("Korelasyon Matrisi Heatmap")
+#plt.show()
+
+
+
+
+#dataset  preproccess
 y  = dataset["infected"]
-x  = dataset.drop("infected",axis=1)
 
-x_train, x_test ,y_train, y_test =train_test_split(x,y,random_state=7,test_size=0.15)
+#x = dataset.drop("infected",axis=1)
 
-sc = StandardScaler()
-x_train = sc.fit_transform(x_train)
-x_test = sc.transform(x_test)
+#Seçilen özellikler ile
+x  = dataset[['cd40', 'cd420', 'age', 'time', 'cd820', 'cd80', 'preanti', 'karnof', 'strat', 'trt']]
+# Sayısal sütunları al
+
+# "infected" sütununda kaç tane 1 olduğunu sayma
+count_ones = dataset['infected'].value_counts()[1]
+
+print(f"'infected' sütununda {count_ones} tane 1 var.")
+
+
+numeric_columns = x.select_dtypes(include=np.number).columns
+
+# Log dönüşümünü uygulayalım
+log_transformed_data = x.copy()
+
+for feature in numeric_columns:
+    min_value = log_transformed_data[feature].min()
+    if min_value <= 0:
+        log_transformed_data[feature] += abs(min_value) + 1  # Sıfır ve negatif değerleri pozitife çevir
+    log_transformed_data[feature] = np.log(log_transformed_data[feature])  # Log dönüşümünü uygula
+
+# Log dönüşüm sonrası
+print("Log dönüşümü tamamlandı.")
+print(log_transformed_data.head())
+
+# Log dönüşüm sonrası dengelenmiş veri
+x = log_transformed_data
+
+
+
+
+
+
+# SMOTE ile dengeleme
+smote = SMOTE(random_state=42)
+x, y = smote.fit_resample(x, y)
+
+# Yeni dengenin kontrolü
+print(pd.Series(y).value_counts())
+
+
+#numeric_columns = x.select_dtypes(include=np.number).columns
+
+# K-S testi sonuçlarını saklamak için bir liste
+#ks_results = []
+
+# Her bir sayısal sütun için K-S testini uygula
+#for column in numeric_columns:
+ #   data = x[column]
+    # Veriyi normalize et (isteğe bağlı, eğer standart normal ile karşılaştırıyorsan)
+  #  standardized_data = (data - data.mean()) / data.std()
+
+    # Kolmogorov-Smirnov testi
+   # stat, p_value = kstest(standardized_data, 'norm')
+    #ks_results.append({
+     #   'Feature': column,
+      #  'Statistic': stat,
+       # 'P-value': p_value,
+        #'Normal Distribution': 'Yes' if p_value > 0.05 else 'No'
+   # })
+
+# Sonuçları DataFrame olarak göster
+#ks_df = pd.DataFrame(ks_results)
+#print(ks_df)
+
+
+
+
+
+
+
+
+# Sadece tek bir katmanı almak için StratifiedKFold'u kullanıyoruz
+# StratifiedKFold kullanarak veriyi 5 katmanda bölelim
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state =7)
+
+
+
+# Cross-validation için döngü
+for train_index, test_index in skf.split(x, y):
+    x_train, x_test = x.iloc[train_index], x.iloc[test_index]
+    y_train, y_test = y.iloc[train_index], y.iloc[test_index]
+
+
+
+
+# Eğitim ve test setlerinin boyutlarını yazdır
+    print(f"Train set size: {len(x_train)}")
+    print(f"Test set size: {len(x_test)}")
+    print("-" * 30)
+    print(y_train.value_counts())
+
+scaler = MinMaxScaler()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+
+
+
+
+
+# Mutual Information hesaplama
+#mutual_info = mutual_info_classif(x[numeric_columns], y, discrete_features=False)
+#mutual_info_series = pd.Series(mutual_info, index=numeric_columns)
+
+# Mutual Information sonuçlarını görselleştirme
+#plt.figure(figsize=(8, 6))
+#mutual_info_series.sort_values(ascending=False).plot(kind='bar', color='skyblue')
+#plt.title("Mutual Information Scores")
+#plt.xlabel("Features")
+#plt.ylabel("Mutual Information")
+#plt.grid(axis='y')
+#plt.show()
+
+# En yüksek Mutual Information değerine sahip ilk 10 özelliği seçme
+#selected_features = mutual_info_series.sort_values(ascending=False).head(10).index.tolist()
+#print("Seçilen Özellikler:", selected_features)
 
 #Decision Tree  Model oluşturulması
 decTree = DecisionTreeClassifier()
@@ -65,13 +200,40 @@ print(f"Specificity: {specificity:.3f}")
 print(f"Precision: {precision:.3f}")
 print(f"F1 Score: {f1:.3f}")
 
+
+y_pred_proba = decTreeModel.predict_proba(x_test)[:, 1]  # Pozitif sınıf için olasılık
+
+
+# Cohen's Kappa
+kappa = cohen_kappa_score(y_test, y_pred)
+print(f"Cohen's Kappa: {kappa:.3f}")
+
+
+# ROC ve AUC
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+auc = roc_auc_score(y_test, y_pred_proba)
+print(f"AUC: {auc:.3f}")
+
+
+# ROC eğrisini çiz
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random Guessing")
+plt.xlabel("False Positive Rate", fontsize=12)
+plt.ylabel("True Positive Rate", fontsize=12)
+plt.title("ROC Curve", fontsize=14)
+plt.legend()
+plt.show()
+
+
+
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
 plt.xlabel('Tahmin Edilen Etiket', fontsize=12)
 plt.ylabel('Gerçek Etiket', fontsize=12)
 plt.title('Karmaşıklık Matrisi', fontsize=14)
 plt.show()
-#0.6195 sonucu çıktı
+
 
 
 #decision tree  grafik çizdirme
@@ -85,7 +247,7 @@ knn = KNeighborsClassifier(n_neighbors=k)
 
 knnModel = knn.fit(x_train,y_train)
 y_pred = knnModel.predict(x_test)
-#0.6546 sonucu çıktı
+
 
 cm = confusion_matrix(y_test,y_pred)
 
@@ -108,6 +270,31 @@ print(f"Specificity: {specificity:.3f}")
 print(f"Precision: {precision:.3f}")
 print(f"F1 Score: {f1:.3f}")
 
+
+y_pred_proba = knnModel.predict_proba(x_test)[:, 1]  # Pozitif sınıf için olasılık
+
+
+# Cohen's Kappa
+kappa = cohen_kappa_score(y_test, y_pred)
+print(f"Cohen's Kappa: {kappa:.3f}")
+
+
+# ROC ve AUC
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+auc = roc_auc_score(y_test, y_pred_proba)
+print(f"AUC: {auc:.3f}")
+
+
+# ROC eğrisini çiz
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random Guessing")
+plt.xlabel("False Positive Rate", fontsize=12)
+plt.ylabel("True Positive Rate", fontsize=12)
+plt.title("ROC Curve", fontsize=14)
+plt.legend()
+plt.show()
+
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
 plt.xlabel('Tahmin Edilen Etiket', fontsize=12)
@@ -115,35 +302,59 @@ plt.ylabel('Gerçek Etiket', fontsize=12)
 plt.title('Karmaşıklık Matrisi', fontsize=14)
 plt.show()
 
-#Destek Vektör Machine  SVM Model oluşturulması
-svm = SVC(kernel="linear", random_state=7)
+# Destek Vektör Makinesi (SVM) Modeli
+svm = SVC(kernel="linear", random_state=7, probability=True)  # probability=True eklendi
+svmModel = svm.fit(x_train, y_train)
 
-svmModel = svm.fit(x_train,y_train.to_numpy())
+# Model Skoru
+score = svmModel.score(x_test, y_test)
+print(f"Model Skoru: {score:.3f}")
 
-svmModel.score(x_test,y_test)
+# Tahminler
 y_pred = svmModel.predict(x_test)
 
-cm = confusion_matrix(y_test,y_pred)
+# Karmaşıklık Matrisi
+cm = confusion_matrix(y_test, y_pred)
+TN, FP, FN, TP = cm.ravel()
+print(f"True Positive: {TP}")
+print(f"False Positive: {FP}")
+print(f"True Negative: {TN}")
+print(f"False Negative: {FN}")
 
-TN,FN,FP,TP  = cm.ravel()
-print(TP)
-print(FP)
-print(TN)
-print(FN)
-
-# Manuel hesaplama
+# Manuel hesaplamalar
 accuracy = (TP + TN) / (TP + TN + FP + FN)
-sensitivity = TP / (TP + FN)
-specificity = TN / (TN + FP)
-precision = TP / (TP + FP)
-f1 = 2 * (specificity * sensitivity) / (specificity + sensitivity)
+sensitivity = TP / (TP + FN) if TP + FN != 0 else 0  # Bölme sıfır hatası için kontrol
+specificity = TN / (TN + FP) if TN + FP != 0 else 0  # Bölme sıfır hatası için kontrol
+precision = TP / (TP + FP) if TP + FP != 0 else 0  # Bölme sıfır hatası için kontrol
+f1 = 2 * (precision * sensitivity) / (precision + sensitivity) if precision + sensitivity != 0 else 0
 
 print(f"Accuracy: {accuracy:.3f}")
-print(f"Sensitivity : {sensitivity:.3f}")
+print(f"Sensitivity: {sensitivity:.3f}")
 print(f"Specificity: {specificity:.3f}")
 print(f"Precision: {precision:.3f}")
 print(f"F1 Score: {f1:.3f}")
 
+# Cohen's Kappa
+kappa = cohen_kappa_score(y_test, y_pred)
+print(f"Cohen's Kappa: {kappa:.3f}")
+
+# ROC ve AUC
+y_pred_proba = svm.predict_proba(x_test)[:, 1]  # Pozitif sınıf için olasılık
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+auc = roc_auc_score(y_test, y_pred_proba)
+print(f"AUC: {auc:.3f}")
+
+# ROC Eğrisini Çizme
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random Guessing")
+plt.xlabel("False Positive Rate", fontsize=12)
+plt.ylabel("True Positive Rate", fontsize=12)
+plt.title("ROC Curve", fontsize=14)
+plt.legend()
+plt.show()
+
+# Karmaşıklık Matrisi
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
 plt.xlabel('Tahmin Edilen Etiket', fontsize=12)
@@ -151,40 +362,37 @@ plt.ylabel('Gerçek Etiket', fontsize=12)
 plt.title('Karmaşıklık Matrisi', fontsize=14)
 plt.show()
 
-
-#0.689 sonucu çıktı
-
-#Yapay Sinir Ağları YSA Model oluşturulması
+# Yapay Sinir Ağı Modeli
 ysa = tf.keras.models.Sequential()
 
-ysa.add(tf.keras.layers.Dense(units=11,activation="relu"))
-ysa.add(tf.keras.layers.Dense(units=11,activation="relu"))
-ysa.add(tf.keras.layers.Dense(units=1,activation="sigmoid"))
+ysa.add(tf.keras.layers.Dense(units=11, activation="relu"))
+ysa.add(tf.keras.layers.Dense(units=11, activation="relu"))
+ysa.add(tf.keras.layers.Dense(units=1, activation="sigmoid"))
 
 ysa.compile(
     optimizer='adam',
     loss='binary_crossentropy',
     metrics=['accuracy']
 )
-#epochsEpoch sayısı, modelin tüm eğitim verisi üzerinde kaç kez eğitim yapacağını belirtir. 50, modelin eğitim verilerini 50 kez öğreneceği anlamına gelir.
 
-#Batch size, modelin her adımda kaç örnekle eğitileceğini belirler. Yani, eğitim seti 32'lik parçalara bölünür ve her seferinde 32 örnek ile model eğitilir.
+# Modeli Eğitme
+history = ysa.fit(x_train, y_train, epochs=100)
 
-#Validation split eğitim verilerinin %20'lik kısmını doğrulama seti olarak ayırır. Bu kısım modelin eğitim sırasında nasıl performans gösterdiğini görmek için kullanılır.
-histroy  =  ysa.fit(x_train, y_train, epochs=100,)
-
+# Tahminler
 y_pred = ysa.predict(x_test)
 
+# 0.5'ten büyük olasılıkları 1, küçük olasılıkları 0 olarak sınıflandırma
 y_pred_binary = (y_pred > 0.5).astype(int)
-cm = confusion_matrix(y_test,y_pred_binary)
 
-TN,FN,FP,TP  = cm.ravel()
-print(TP)
-print(FP)
-print(TN)
-print(FN)
+# Karmaşıklık Matrisi
+cm = confusion_matrix(y_test, y_pred_binary)
+TN, FP, FN, TP = cm.ravel()
+print(f"True Positive: {TP}")
+print(f"False Positive: {FP}")
+print(f"True Negative: {TN}")
+print(f"False Negative: {FN}")
 
-# Manuel hesaplama
+# Manuel Hesaplamalar
 accuracy = (TP + TN) / (TP + TN + FP + FN)
 sensitivity = TP / (TP + FN)
 specificity = TN / (TN + FP)
@@ -192,11 +400,31 @@ precision = TP / (TP + FP)
 f1 = 2 * (specificity * sensitivity) / (specificity + sensitivity)
 
 print(f"Accuracy: {accuracy:.3f}")
-print(f"Sensitivity : {sensitivity:.3f}")
+print(f"Sensitivity: {sensitivity:.3f}")
 print(f"Specificity: {specificity:.3f}")
 print(f"Precision: {precision:.3f}")
 print(f"F1 Score: {f1:.3f}")
 
+# Cohen's Kappa
+kappa = cohen_kappa_score(y_test, y_pred_binary)
+print(f"Cohen's Kappa: {kappa:.3f}")
+
+# ROC ve AUC
+fpr, tpr, thresholds = roc_curve(y_test, y_pred.ravel())  # y_pred zaten olasılık
+auc = roc_auc_score(y_test, y_pred.ravel())  # y_pred.ravel() olasılıkları döndürür
+print(f"AUC: {auc:.3f}")
+
+# ROC Eğrisini Çizme
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random Guessing")
+plt.xlabel("False Positive Rate", fontsize=12)
+plt.ylabel("True Positive Rate", fontsize=12)
+plt.title("ROC Curve", fontsize=14)
+plt.legend()
+plt.show()
+
+# Karmaşıklık Matrisi
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
 plt.xlabel('Tahmin Edilen Etiket', fontsize=12)
@@ -204,13 +432,9 @@ plt.ylabel('Gerçek Etiket', fontsize=12)
 plt.title('Karmaşıklık Matrisi', fontsize=14)
 plt.show()
 
+# Test Doğruluğunu Hesapla
 _, test_accuracy = ysa.evaluate(x_test, y_test)
 print(f"Modelin Test Doğruluğu: {test_accuracy * 100:.2f}%")
-
-
-
-
-# her seferinde %70.08 çıktı sonuç
 
 #Random Forest Classifier
 
@@ -222,7 +446,7 @@ forest.fit(x_train,y_train)
 forest.score(x_test,y_test)
 
 y_pred = forest.predict(x_test)
-#0.70 sonucu çıktı
+
 cm = confusion_matrix(y_test,y_pred)
 
 TN,FN,FP,TP  = cm.ravel()
@@ -243,6 +467,29 @@ print(f"Sensitivity : {sensitivity:.3f}")
 print(f"Specificity: {specificity:.3f}")
 print(f"Precision: {precision:.3f}")
 print(f"F1 Score: {f1:.3f}")
+
+y_pred_proba = forest.predict_proba(x_test)[:, 1]  # Pozitif sınıf için olasılık
+
+# Cohen's Kappa
+kappa = cohen_kappa_score(y_test, y_pred)
+print(f"Cohen's Kappa: {kappa:.3f}")
+
+
+# ROC ve AUC
+fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+auc = roc_auc_score(y_test, y_pred_proba)
+print(f"AUC: {auc:.3f}")
+
+
+# ROC eğrisini çiz
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.3f})", color="blue")
+plt.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random Guessing")
+plt.xlabel("False Positive Rate", fontsize=12)
+plt.ylabel("True Positive Rate", fontsize=12)
+plt.title("ROC Curve", fontsize=14)
+plt.legend()
+plt.show()
 
 plt.figure(figsize=(8, 6))
 sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=False)
