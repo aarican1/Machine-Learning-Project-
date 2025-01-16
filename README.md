@@ -17,7 +17,7 @@
 
 **1.Özet**
 
-Bu projede, AIDS Virüsü Enfekte Tahmini[6] veri seti kullanılarak bir sınıflandırma problemi çözüldü. Karar ağaçları, K En Yakın Komşu, Destek Vektör Makineleri, Yapay Sinir Ağları, Rastgele Orman algoritmaları kullanılarak model eğitildi ve doğruluk oranları karşılaştırıldı. Sonuçlar Yapay Sinir Ağları modelinin daha yüksek doğruluk sağladığını gösterdi.
+Bu projede, AIDS Virüsü Enfekte Tahmini[6] veri seti kullanılarak bir sınıflandırma problemi çözüldü. Karar ağaçları, K En Yakın Komşu, Destek Vektör Makineleri, Yapay Sinir Ağları, Rastgele Orman algoritmaları kullanılarak model eğitildi ve doğruluk oranları karşılaştırıldı. Sonuçlar Rastgele Orman  modelinin daha yüksek doğruluk sağladığını gösterdi.
 
 
 **2.Giriş**
